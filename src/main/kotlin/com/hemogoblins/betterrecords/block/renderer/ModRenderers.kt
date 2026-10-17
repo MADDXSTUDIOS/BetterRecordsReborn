@@ -1,9 +1,9 @@
 package com.hemogoblins.betterrecords.block.renderer
 
 import com.hemogoblins.betterrecords.block.ModBlocks
-import net.minecraftforge.client.event.EntityRenderersEvent
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.neoforged.bus.api.IEventBus
+import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.client.event.EntityRenderersEvent
 
 object ModRenderers {
 

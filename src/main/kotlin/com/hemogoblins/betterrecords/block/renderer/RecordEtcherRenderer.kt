@@ -26,7 +26,8 @@ import kotlin.math.abs
 class RecordEtcherRenderer(context: BlockEntityRendererProvider.Context): BlockEntityRenderer<RecordEtcherBlockEntity> {
 
     companion object {
-        val MODEL_LAYER_LOCATION = ModelLayerLocation(ResourceLocation(BetterRecords.ID, "record_etcher_model"), "main")
+        val MODEL_LAYER_LOCATION = ModelLayerLocation(BetterRecords.id("record_etcher_model"), "main")
+        private val TEXTURE: ResourceLocation = BetterRecords.id("textures/block/record_etcher.png")
 
         fun createBodyLayer(): LayerDefinition {
             return LayerDefinition.create(MeshDefinition().apply {
@@ -58,7 +59,7 @@ class RecordEtcherRenderer(context: BlockEntityRendererProvider.Context): BlockE
             packedOverlay: Int
     ) {
         val time = (entity.level?.gameTime ?: 0) + partialTick
-        val consumer: VertexConsumer = bufferSource.getBuffer(RenderType.entityCutout(ResourceLocation(BetterRecords.ID, "textures/block/record_etcher.png")))
+        val consumer: VertexConsumer = bufferSource.getBuffer(RenderType.entityCutout(TEXTURE))
         val isEtching = (!entity.isEmpty) // && isValid
 
         val rot = if (isEtching) (time * 3f) % 360 else 0f

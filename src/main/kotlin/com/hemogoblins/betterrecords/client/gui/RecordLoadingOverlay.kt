@@ -6,8 +6,8 @@ import net.minecraft.Util
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraftforge.client.gui.overlay.ForgeGui
-import net.minecraftforge.client.gui.overlay.IGuiOverlay
+import net.minecraft.client.DeltaTracker
+import net.minecraft.client.gui.LayeredDraw
 import kotlin.math.roundToInt
 
 /**
@@ -15,7 +15,7 @@ import kotlin.math.roundToInt
  * (downloading and/or decoding) it shows a progress bar with the record name;
  * for a few seconds after playback starts it switches to a "Now Playing" line.
  */
-object RecordLoadingOverlay : IGuiOverlay {
+object RecordLoadingOverlay : LayeredDraw.Layer {
 
     private const val BAR_WIDTH = 120
     private const val BAR_HEIGHT = 4
@@ -32,11 +32,8 @@ object RecordLoadingOverlay : IGuiOverlay {
     private const val COLOR_SUBTEXT = 0xAAAAAA
 
     override fun render(
-        gui: ForgeGui,
         guiGraphics: GuiGraphics,
-        partialTick: Float,
-        screenWidth: Int,
-        screenHeight: Int,
+        deltaTracker: DeltaTracker,
     ) {
         val records = RecordSoundManager.activeRecords()
         if (records.isEmpty()) return

@@ -8,10 +8,9 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SimpleSoundInstance
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.registries.ForgeRegistries
 import java.util.concurrent.CompletableFuture
-import net.minecraft.world.item.RecordItem as VanillaRecordItem
 
 /**
  * Client-side registry of currently playing records
@@ -69,14 +68,14 @@ object RecordSoundManager {
 
     /** Plays a vanilla music disc through vanilla's sound engine. */
     private fun playVanilla(pos: BlockPos, source: PlayRecordPacket.RecordSource.Vanilla) {
-        val event = ForgeRegistries.SOUND_EVENTS.getValue(source.sound)
+        val event = BuiltInRegistries.SOUND_EVENT.get(source.sound)
         if (event == null) {
             BetterRecords.logger.warn("Unknown sound event for vanilla disc at $pos: ${source.sound}")
             return
         }
 
-        val instance = SimpleSoundInstance.forRecord(event, Vec3.atCenterOf(pos))
-        val name = VanillaRecordItem.getBySound(event)?.displayName?.string ?: "Record"
+        val instance = SimpleSoundInstance.forJukeboxSong(event, Vec3.atCenterOf(pos))
+        val name = source.name.string.ifBlank { "Record" }
         activeSounds[pos] = ActiveSound(instance, VanillaRecordPlayingSound(name, Util.getMillis()))
         Minecraft.getInstance().soundManager.play(instance)
     }

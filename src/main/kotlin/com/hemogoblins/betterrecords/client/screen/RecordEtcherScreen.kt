@@ -3,7 +3,6 @@ package com.hemogoblins.betterrecords.client.screen
 import com.hemogoblins.betterrecords.BetterRecords
 import com.hemogoblins.betterrecords.client.cache.UnsupportedAudioTypeException
 import com.hemogoblins.betterrecords.menu.RecordEtcherMenu
-import com.hemogoblins.betterrecords.network.ModNetwork
 import com.hemogoblins.betterrecords.network.serverbound.RequestEtchPacket
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -12,6 +11,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.entity.player.Inventory
+import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
 import kotlin.math.roundToInt
 
@@ -21,7 +21,7 @@ class RecordEtcherScreen(
     title: Component,
 ) : AbstractContainerScreen<RecordEtcherMenu>(container, playerInventory, title) {
 
-    private val BACKGROUND_TEXTURE = ResourceLocation(BetterRecords.ID, "textures/gui/record_etcher.png")
+    private val BACKGROUND_TEXTURE: ResourceLocation = BetterRecords.id("textures/gui/record_etcher.png")
 
     private val ERROR_COLOR = 0xFF5555
     private val SUCCESS_COLOR = 0x55FF55
@@ -152,7 +152,7 @@ class RecordEtcherScreen(
                 return@whenComplete
             }
 
-            ModNetwork.channel.sendToServer(
+            PacketDistributor.sendToServer(
                 RequestEtchPacket(
                     pos,
                     name = name,
@@ -194,7 +194,8 @@ class RecordEtcherScreen(
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
-        this.renderBackground(guiGraphics)
+        // Screen#render draws the background itself since 1.20.2, calling renderBackground
+        // again here would blur twice and crash on 1.21.
         super.render(guiGraphics, mouseX, mouseY, partialTicks)
         this.renderTooltip(guiGraphics, mouseX, mouseY)
     }

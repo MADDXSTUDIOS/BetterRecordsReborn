@@ -1,9 +1,9 @@
 package com.hemogoblins.betterrecords.block
 
 import com.hemogoblins.betterrecords.block.entity.RecordEtcherBlockEntity
+import com.mojang.serialization.MapCodec
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.BlockGetter
@@ -18,7 +18,6 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
-import net.minecraftforge.network.NetworkHooks
 
 class RecordEtcherBlock(properties: Properties): BaseEntityBlock(properties) {
 
@@ -30,36 +29,34 @@ class RecordEtcherBlock(properties: Properties): BaseEntityBlock(properties) {
             15.0, 14.0, 15.0
     )
 
+    override fun codec(): MapCodec<out BaseEntityBlock> = simpleCodec(::RecordEtcherBlock)
+
     override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return RecordEtcherBlockEntity(pos, state)
     }
 
-    override fun use(
+    // Opening the GUI doesn't depend on the held item, so useItemOn falls through
+    // to this (its default is PASS_TO_DEFAULT_BLOCK_INTERACTION).
+    override fun useWithoutItem(
         state: BlockState,
         level: Level,
         pos: BlockPos,
         player: Player,
-        hand: InteractionHand,
         hit: BlockHitResult
     ): InteractionResult {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS
         }
 
-        NetworkHooks.openScreen(
-            player as ServerPlayer,
-            level.getBlockEntity(pos) as RecordEtcherBlockEntity,
-            pos
-        )
+        val blockEntity = level.getBlockEntity(pos) as? RecordEtcherBlockEntity ?: return InteractionResult.PASS
+        (player as ServerPlayer).openMenu(blockEntity, pos)
 
         return InteractionResult.CONSUME
     }
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
-            level.getBlockEntity(pos).takeIf { it is RecordEtcherBlockEntity }.let {
-                (it as RecordEtcherBlockEntity).dropContents()
-            }
+            (level.getBlockEntity(pos) as? RecordEtcherBlockEntity)?.dropContents()
         }
 
         super.onRemove(state, level, pos, newState, isMoving)

@@ -35,14 +35,14 @@ class RecordPlayingSound(
     @Volatile
     override var startedPlayingAt: Long = 0L
 
-    override fun getLocation() = ResourceLocation(BetterRecords.ID, file)
+    override fun getLocation(): ResourceLocation = BetterRecords.id(file)
 
     override fun resolve(soundManager: SoundManager): WeighedSoundEvents?  = null
 
     // getSound/getVolume/getPitch exist only to satisfy the SoundInstance contract.
     // Playback is handled by MixinSoundEngine
     override fun getSound() = Sound(
-        location.toString(),
+        location,
         ConstantFloat.of(volume),
         ConstantFloat.of(pitch),
         1,

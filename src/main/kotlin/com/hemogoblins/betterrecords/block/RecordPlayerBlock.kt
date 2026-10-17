@@ -1,13 +1,16 @@
 package com.hemogoblins.betterrecords.block
 
 import com.hemogoblins.betterrecords.block.entity.RecordPlayerBlockEntity
+import com.mojang.serialization.MapCodec
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
+import net.minecraft.world.ItemInteractionResult
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
@@ -48,6 +51,8 @@ class RecordPlayerBlock(properties: Properties) : BaseEntityBlock(properties) {
                 .setValue(OPEN, false))
     }
 
+    override fun codec(): MapCodec<out BaseEntityBlock> = simpleCodec(::RecordPlayerBlock)
+
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         return this.defaultBlockState()
                 .setValue(FACING, context.horizontalDirection.opposite)
@@ -62,17 +67,42 @@ class RecordPlayerBlock(properties: Properties) : BaseEntityBlock(properties) {
         return RecordPlayerBlockEntity(pos, state)
     }
 
-    override fun use(
+    // 1.20.5+ split Block#use into useItemOn (holding something) and useWithoutItem (empty hand).
+    // Both share the same behaviour here, the held stack is only needed to insert a record.
+
+    override fun useItemOn(
+            stack: ItemStack,
             state: BlockState,
             level: Level,
             pos: BlockPos,
             player: Player,
             hand: InteractionHand,
             hit: BlockHitResult
-    ): InteractionResult {
+    ): ItemInteractionResult {
+        return if (interact(state, level, pos, player, stack)) {
+            ItemInteractionResult.sidedSuccess(level.isClientSide)
+        } else {
+            ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+        }
+    }
 
-        val ent = level.getBlockEntity(pos) as RecordPlayerBlockEntity
-        var didInteract = false
+    override fun useWithoutItem(
+            state: BlockState,
+            level: Level,
+            pos: BlockPos,
+            player: Player,
+            hit: BlockHitResult
+    ): InteractionResult {
+        return if (interact(state, level, pos, player, ItemStack.EMPTY)) {
+            InteractionResult.sidedSuccess(level.isClientSide)
+        } else {
+            InteractionResult.FAIL // todo: should this be PASS?
+        }
+    }
+
+    /** Returns true if the player interacted with the record player. */
+    private fun interact(state: BlockState, level: Level, pos: BlockPos, player: Player, heldItem: ItemStack): Boolean {
+        val ent = level.getBlockEntity(pos) as? RecordPlayerBlockEntity ?: return false
 
         // temp behaviour for working on rendering
 
@@ -82,22 +112,23 @@ class RecordPlayerBlock(properties: Properties) : BaseEntityBlock(properties) {
                 false -> level.playSound(null, pos, SoundEvents.CHEST_OPEN, SoundSource.NEUTRAL, .2f, level.random.nextFloat() * 0.2f + 3f)
             }
             ent.toggleOpenState(state, !isOpen(state))
-            didInteract = true
-        } else if (isOpen(state)) {
-            if (!ent.isEmpty) {
-                ent.popOutRecord()
-                didInteract = true
-            } else didInteract = ent.tryInsertItem(player.getItemInHand(hand))
+            return true
         }
 
-        return if (didInteract) InteractionResult.sidedSuccess(level.isClientSide) else InteractionResult.FAIL // todo: should this be PASS?
+        if (isOpen(state)) {
+            if (!ent.isEmpty) {
+                ent.popOutRecord()
+                return true
+            }
+            return ent.tryInsertItem(heldItem)
+        }
+
+        return false
     }
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
-            level.getBlockEntity(pos).takeIf { it is RecordPlayerBlockEntity }.let {
-                (it as RecordPlayerBlockEntity).stopPlaying()
-            }
+            (level.getBlockEntity(pos) as? RecordPlayerBlockEntity)?.stopPlaying()
         }
 
         super.onRemove(state, level, pos, newState, isMoving)

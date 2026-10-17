@@ -80,7 +80,7 @@ public abstract class MixinSoundEngine {
         return BASE_VOLUME * (1.0F - (float)(distance / MAX_DISTANCE));
     }
 
-    @Inject(method="play", at = @At("HEAD"), cancellable = true)
+    @Inject(method="play(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
     public void onPlay(SoundInstance sound, CallbackInfo ci) {
         if (!(sound instanceof RecordPlayingSound recordSound)) {
             return;
@@ -161,7 +161,8 @@ public abstract class MixinSoundEngine {
         betterRecords$soundHandles.put(recordSound, channelHandle);
     }
 
-    @Inject(method="stop", at = @At("HEAD"), cancellable = true)
+    // SoundEngine has two stop overloads, target the SoundInstance one explicitly.
+    @Inject(method="stop(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
     public void onStop(SoundInstance sound, CallbackInfo ci) {
         if (sound instanceof RecordPlayingSound recordSound) {
             // Cancel playback if the sound is still being decoded
@@ -180,7 +181,7 @@ public abstract class MixinSoundEngine {
     /**
      * Updates the volume of all active sounds based on the player's distance from the sound source.
      */
-    @Inject(method="tick", at = @At("TAIL"))
+    @Inject(method="tick(Z)V", at = @At("TAIL"))
     public void onTick(CallbackInfo ci) {
         Iterator<Map.Entry<RecordPlayingSound, ChannelAccess.ChannelHandle>> iterator =
                 betterRecords$soundHandles.entrySet().iterator();

@@ -1,7 +1,6 @@
 package com.hemogoblins.betterrecords.block.renderer
 
-import com.hemogoblins.betterrecords.capability.ColorableCapability
-import com.hemogoblins.betterrecords.capability.ModCapabilities
+import com.hemogoblins.betterrecords.component.ModDataComponents
 import com.hemogoblins.betterrecords.item.ModItems
 import net.minecraft.client.renderer.entity.ItemRenderer
 import net.minecraft.world.item.Item
@@ -23,9 +22,7 @@ object VanillaDiscProxies {
             val color = sampleDiscColor(stack, itemRenderer, level)
 
             ItemStack(ModItems.RECORD.get()).apply {
-                getCapability(ModCapabilities.COLORABLE_CAPABILITY).ifPresent {
-                    (it as ColorableCapability).color = color
-                }
+                set(ModDataComponents.COLOR.get(), color)
             }
         }
     }

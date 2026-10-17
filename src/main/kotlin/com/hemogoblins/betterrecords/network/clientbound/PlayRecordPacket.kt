@@ -1,16 +1,19 @@
 package com.hemogoblins.betterrecords.network.clientbound
 
-import com.hemogoblins.betterrecords.capability.ModCapabilities
+import com.hemogoblins.betterrecords.BetterRecords
 import com.hemogoblins.betterrecords.client.sound.RecordSoundManager
+import com.hemogoblins.betterrecords.component.ModDataComponents
 import net.minecraft.core.BlockPos
-import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.core.HolderLookup
+import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.ComponentSerialization
+import net.minecraft.network.codec.StreamCodec
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.RecordItem
-import net.minecraftforge.api.distmarker.Dist
-import net.minecraftforge.fml.DistExecutor
-import net.minecraftforge.network.NetworkEvent.Context
-import java.util.function.Supplier
+import net.minecraft.world.item.JukeboxSong
+import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**
  * This packet is sent to the client when a record is inserted into a player
@@ -18,24 +21,26 @@ import java.util.function.Supplier
 class PlayRecordPacket(
     val pos: BlockPos,
     val source: RecordSource,
-) {
+) : CustomPacketPayload {
 
-    fun encode(buf: FriendlyByteBuf) {
+    override fun type(): CustomPacketPayload.Type<PlayRecordPacket> = TYPE
+
+    fun encode(buf: RegistryFriendlyByteBuf) {
         buf.writeBlockPos(pos)
         source.encode(buf)
     }
 
     companion object {
-        fun handle(msg: PlayRecordPacket, ctx: Supplier<Context>) {
-            ctx.get().enqueueWork {
-                DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
-                    Runnable { RecordSoundManager.play(msg.pos, msg.source) }
-                }
-            }
-            ctx.get().packetHandled = true
+        val TYPE = CustomPacketPayload.Type<PlayRecordPacket>(BetterRecords.id("play_record"))
+
+        val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, PlayRecordPacket> =
+            StreamCodec.ofMember(PlayRecordPacket::encode, ::decode)
+
+        fun handle(msg: PlayRecordPacket, context: IPayloadContext) {
+            RecordSoundManager.play(msg.pos, msg.source)
         }
 
-        fun decode(buf: FriendlyByteBuf): PlayRecordPacket {
+        fun decode(buf: RegistryFriendlyByteBuf): PlayRecordPacket {
             return PlayRecordPacket(
                 buf.readBlockPos(),
                 RecordSource.decode(buf),
@@ -45,11 +50,11 @@ class PlayRecordPacket(
 
     sealed class RecordSource {
 
-        abstract fun encode(buf: FriendlyByteBuf)
+        abstract fun encode(buf: RegistryFriendlyByteBuf)
 
         /** A BetterRecords record  */
         data class File(val name: String, val url: String, val checksum: String) : RecordSource() {
-            override fun encode(buf: FriendlyByteBuf) {
+            override fun encode(buf: RegistryFriendlyByteBuf) {
                 buf.writeByte(Type.FILE.ordinal)
                 buf.writeUtf(name)
                 buf.writeUtf(url)
@@ -57,32 +62,37 @@ class PlayRecordPacket(
             }
         }
 
-        /** A vanilla music disc  */
-        data class Vanilla(val sound: ResourceLocation) : RecordSource() {
-            override fun encode(buf: FriendlyByteBuf) {
+        /**
+         * A vanilla (or modded) music disc.
+         *
+         * Since 1.21 discs are data driven jukebox songs, so the song's display name
+         * is sent along with the sound rather than looked up from the item on the client.
+         */
+        data class Vanilla(val sound: ResourceLocation, val name: Component) : RecordSource() {
+            override fun encode(buf: RegistryFriendlyByteBuf) {
                 buf.writeByte(Type.VANILLA.ordinal)
                 buf.writeResourceLocation(sound)
+                ComponentSerialization.STREAM_CODEC.encode(buf, name)
             }
         }
 
         private enum class Type { FILE, VANILLA }
 
         companion object {
-            fun decode(buf: FriendlyByteBuf): RecordSource =
-                when (Type.values()[buf.readByte().toInt()]) {
+            fun decode(buf: RegistryFriendlyByteBuf): RecordSource =
+                when (Type.entries[buf.readByte().toInt()]) {
                     Type.FILE -> File(buf.readUtf(), buf.readUtf(), buf.readUtf())
-                    Type.VANILLA -> Vanilla(buf.readResourceLocation())
+                    Type.VANILLA -> Vanilla(buf.readResourceLocation(), ComponentSerialization.STREAM_CODEC.decode(buf))
                 }
 
-            fun of(stack: ItemStack): RecordSource? {
-                val holder = stack.getCapability(ModCapabilities.MUSIC_HOLDER_CAPABILITY).resolve()
-                if (holder.isPresent) {
-                    val music = holder.get()
+            fun of(stack: ItemStack, registries: HolderLookup.Provider): RecordSource? {
+                stack.get(ModDataComponents.MUSIC.get())?.let { music ->
                     return if (music.checksum.isNotEmpty()) File(music.songName, music.url, music.checksum) else null
                 }
 
-                (stack.item as? RecordItem)?.let { return Vanilla(it.sound.location) }
-                return null
+                return JukeboxSong.fromStack(registries, stack)
+                    .map { song -> Vanilla(song.value().soundEvent().value().location, song.value().description()) }
+                    .orElse(null)
             }
         }
     }

@@ -1,37 +1,36 @@
 package com.hemogoblins.betterrecords
 
 import net.minecraft.client.Minecraft
-import net.minecraftforge.common.ForgeConfigSpec
-import net.minecraftforge.common.ForgeConfigSpec.Builder
-import net.minecraftforge.fml.ModLoadingContext
-import net.minecraftforge.fml.config.ModConfig
+import net.neoforged.fml.ModLoadingContext
+import net.neoforged.fml.config.ModConfig
+import net.neoforged.neoforge.common.ModConfigSpec
 import java.io.File
 
 object BRConfig {
 
     fun register() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Client.spec)
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.CLIENT, Client.spec)
     }
 
     object Client {
-        val spec: ForgeConfigSpec
+        val spec: ModConfigSpec
 
         // For now we only support the filesystem cache... This may break
         // config in the future
-        val cacheTempDirectory: ForgeConfigSpec.ConfigValue<String>
+        val cacheTempDirectory: ModConfigSpec.ConfigValue<String>
             get() {
                 File(Minecraft.getInstance().gameDirectory, field.get()).mkdirs()
                 return field
             }
 
-        val cacheDirectory: ForgeConfigSpec.ConfigValue<String>
+        val cacheDirectory: ModConfigSpec.ConfigValue<String>
             get() {
                 File(Minecraft.getInstance().gameDirectory, field.get()).mkdirs()
                 return field
             }
 
         init {
-            val builder = Builder()
+            val builder = ModConfigSpec.Builder()
 
             builder
                 .comment("Music Download Cache")

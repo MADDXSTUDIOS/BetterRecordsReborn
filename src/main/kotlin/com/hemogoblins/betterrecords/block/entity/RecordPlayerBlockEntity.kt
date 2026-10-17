@@ -3,18 +3,20 @@ package com.hemogoblins.betterrecords.block.entity
 import com.hemogoblins.betterrecords.block.ModBlocks
 import com.hemogoblins.betterrecords.block.RecordPlayerBlock
 import com.hemogoblins.betterrecords.block.RecordPlayerBlock.Companion.FACING
-import com.hemogoblins.betterrecords.network.ModNetwork
 import com.hemogoblins.betterrecords.network.clientbound.PlayRecordPacket
 import com.hemogoblins.betterrecords.network.clientbound.StopRecordPacket
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.entity.BlockEntityTicker
 import net.minecraft.world.level.block.entity.ChestLidController
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.network.PacketDistributor
-import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
+import net.neoforged.neoforge.network.PacketDistributor
 
 class RecordPlayerBlockEntity(
         pos: BlockPos,
@@ -60,7 +62,7 @@ class RecordPlayerBlockEntity(
         if (!isEmpty && this.level != null && !this.level!!.isClientSide) {
             // level really likes to be null here
             level?.let{
-                val dir = blockState.getValue(FACING).normal
+                val dir = Vec3.atLowerCornerOf(blockState.getValue(FACING).normal)
                 val vec = Vec3.atLowerCornerWithOffset(blockPos, 0.5, 0.76, 0.5)
                 val dirMul = 0.2
                 val itemEntity = ItemEntity(it, vec.x, vec.y, vec.z, getSlottedItem().copy())
@@ -73,7 +75,7 @@ class RecordPlayerBlockEntity(
                         (2.0 * it.random.nextDouble() - 1) * 0.05f,
                         (2.0 * it.random.nextDouble() - 1) * 0.1f ,
                         (2.0 * it.random.nextDouble() - 1) * 0.05f).add(
-                            dir.toVec3().multiply(dirMul, dirMul, dirMul)
+                            dir.multiply(dirMul, dirMul, dirMul)
                         )
 
                 removeSlottedItem()
@@ -95,12 +97,8 @@ class RecordPlayerBlockEntity(
     }
 
     private fun sendPlayRecord() {
-        val source = PlayRecordPacket.RecordSource.of(getSlottedItem()) ?: return
-
-        ModNetwork.channel.send(
-            PacketDistributor.TRACKING_CHUNK.with { level!!.getChunkAt(blockPos) },
-            PlayRecordPacket(blockPos, source),
-        )
+        val source = PlayRecordPacket.RecordSource.of(getSlottedItem(), level!!.registryAccess()) ?: return
+        sendToTracking(PlayRecordPacket(blockPos, source))
     }
 
     fun stopPlaying() {
@@ -112,15 +110,18 @@ class RecordPlayerBlockEntity(
     }
 
     private fun sendStopRecord() {
-        ModNetwork.channel.send(
-            PacketDistributor.TRACKING_CHUNK.with { level!!.getChunkAt(blockPos) },
-            StopRecordPacket(blockPos),
-        )
+        sendToTracking(StopRecordPacket(blockPos))
+    }
+
+    /** Sends [payload] to every player that has this block's chunk loaded. */
+    private fun sendToTracking(payload: CustomPacketPayload) {
+        val serverLevel = level as? ServerLevel ?: return
+        PacketDistributor.sendToPlayersTrackingChunk(serverLevel, ChunkPos(blockPos), payload)
     }
 
     // todo: once playback is implemented, save and resume song playback state
-    override fun load(tag: CompoundTag) {
-        super.load(tag)
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
         tag.takeIf { it.contains(NBT_TAG_PLAYING) }?.let{
             togglePlaying(it.getBoolean(NBT_TAG_PLAYING))
         }

@@ -1,6 +1,6 @@
 name: Build
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
@@ -13,10 +13,17 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Run Gradle Build
-        run: ./gradlew build
+        run: ./gradlew :build --stacktrace
+
+      - name: Upload Jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: betterrecords-jar
+          path: build/libs/*.jar
+          if-no-files-found: error

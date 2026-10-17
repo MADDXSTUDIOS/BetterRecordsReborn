@@ -22,12 +22,13 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.minecraft.world.item.RecordItem as VanillaRecordItem
+import net.minecraft.core.component.DataComponents
 
 class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : BlockEntityRenderer<RecordPlayerBlockEntity> {
 
     companion object {
-        val MODEL_LAYER_LOCATION = ModelLayerLocation(ResourceLocation(BetterRecords.ID, "record_player_model"), "main")
+        val MODEL_LAYER_LOCATION = ModelLayerLocation(BetterRecords.id("record_player_model"), "main")
+        private val TEXTURE: ResourceLocation = BetterRecords.id("textures/block/record_player.png")
 
         // todo: move to separate model file? or maybe this is fine
         fun createBodyLayer(): LayerDefinition {
@@ -69,7 +70,7 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
             packedLight: Int,
             packedOverlay: Int
     ) {
-        val consumer: VertexConsumer = bufferSource.getBuffer(RenderType.entityCutout(ResourceLocation(BetterRecords.ID, "textures/block/record_player.png")))
+        val consumer: VertexConsumer = bufferSource.getBuffer(RenderType.entityCutout(TEXTURE))
         val dir = entity.blockState.getValue(FACING).toYRot()
 
         poseStack.pushPose()
@@ -106,7 +107,7 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
             packedLight: Int,
             packedOverlay: Int
     ) {
-        val consumerNoCull: VertexConsumer = bufferSource.getBuffer(RenderType.armorCutoutNoCull(ResourceLocation(BetterRecords.ID, "textures/block/record_player.png")))
+        val consumerNoCull: VertexConsumer = bufferSource.getBuffer(RenderType.armorCutoutNoCull(TEXTURE))
 
         var f1 = entity.getLidOpenness(partialTick)
         f1 = 1.0f - f1
@@ -154,7 +155,7 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
             mulPose(Axis.ZN.rotationDegrees(rotation))
         }
 
-        if (itemStack.item is VanillaRecordItem) {
+        if (itemStack.has(DataComponents.JUKEBOX_PLAYABLE)) {
             renderVanillaDisc(itemStack, poseStack, bufferSource, packedLight, packedOverlay, level)
         } else {
             renderItem(itemStack, poseStack, bufferSource, packedLight, packedOverlay, level)

@@ -7,21 +7,23 @@ import com.hemogoblins.betterrecords.block.renderer.ModRenderers
 import com.hemogoblins.betterrecords.capability.ModCapabilities
 import com.hemogoblins.betterrecords.client.cache.FilesystemCache
 import com.hemogoblins.betterrecords.client.gui.ModOverlays
+import com.hemogoblins.betterrecords.client.ModItemColors
 import com.hemogoblins.betterrecords.client.sound.format.Mp3AudioStreamProvider
 import com.hemogoblins.betterrecords.client.sound.format.OggAudioStreamProvider
 import com.hemogoblins.betterrecords.client.screen.ModScreens
+import com.hemogoblins.betterrecords.component.ModDataComponents
 import com.hemogoblins.betterrecords.item.ModItems
 import com.hemogoblins.betterrecords.menu.ModMenuTypes
 import com.hemogoblins.betterrecords.network.ModNetwork
-import net.minecraftforge.fml.common.Mod
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
-import net.minecraftforge.fml.event.lifecycle.FMLDedicatedServerSetupEvent
+import net.minecraft.resources.ResourceLocation
+import net.neoforged.fml.common.Mod
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
+import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
-import thedarkcolour.kotlinforforge.forge.MOD_BUS
-import thedarkcolour.kotlinforforge.forge.runForDist
+import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
+import thedarkcolour.kotlinforforge.neoforge.forge.runForDist
 import java.io.File
-import kotlin.io.path.Path
 
 /**
  * The main entrypoint for the mod, this class handles initialization, grabs the event bus,
@@ -45,19 +47,24 @@ object BetterRecords {
         )
     }
 
+    /** Shorthand for a [ResourceLocation] in the mod's namespace */
+    fun id(path: String): ResourceLocation = ResourceLocation.fromNamespaceAndPath(ID, path)
+
     init {
         BRConfig.register()
 
+        ModDataComponents.register(MOD_BUS)
         ModBlocks.register(MOD_BUS)
         ModItems.register(MOD_BUS)
         ModCapabilities.register(MOD_BUS)
         ModMenuTypes.register(MOD_BUS)
-        ModScreens.register(MOD_BUS)
-        ModRenderers.register(MOD_BUS)
-        ModNetwork.register()
+        ModNetwork.register(MOD_BUS)
 
         runForDist(
                 clientTarget = {
+                    ModItemColors.register(MOD_BUS)
+                    ModScreens.register(MOD_BUS)
+                    ModRenderers.register(MOD_BUS)
                     MOD_BUS.addListener(::onClientSetup)
                     MOD_BUS.addListener(ModOverlays::register)
                 },

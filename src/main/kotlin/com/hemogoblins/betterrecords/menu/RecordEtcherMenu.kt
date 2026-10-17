@@ -3,16 +3,15 @@ package com.hemogoblins.betterrecords.menu
 import com.hemogoblins.betterrecords.BetterRecords
 import com.hemogoblins.betterrecords.block.ModBlocks
 import com.hemogoblins.betterrecords.block.entity.RecordEtcherBlockEntity
-import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.inventory.ContainerLevelAccess
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
-import net.minecraftforge.common.capabilities.ForgeCapabilities
-import net.minecraftforge.items.IItemHandler
-import net.minecraftforge.items.SlotItemHandler
+import net.neoforged.neoforge.items.IItemHandler
+import net.neoforged.neoforge.items.SlotItemHandler
 
 class RecordEtcherMenu(
     windowId: Int,
@@ -23,7 +22,7 @@ class RecordEtcherMenu(
     constructor(
         windowId: Int,
         playerInventory: Inventory,
-        buf: FriendlyByteBuf
+        buf: RegistryFriendlyByteBuf
     ) : this(
         windowId,
         playerInventory,
@@ -44,7 +43,7 @@ class RecordEtcherMenu(
             addSlot(Slot(playerInventory, i, 8 + i * 18, 178))
         }
 
-        val itemHandler: IItemHandler = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve().get()
+        val itemHandler: IItemHandler = blockEntity.itemHandler
 
         addSlot(object : SlotItemHandler(itemHandler, 0, 17 + 0 * 18, 26 + 0 * 18) {
             override fun mayPlace(stack: ItemStack): Boolean {

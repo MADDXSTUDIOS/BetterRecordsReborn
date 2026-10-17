@@ -1,22 +1,23 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 /////////////////////////////
 // BuildScript and Plugins //
 /////////////////////////////
 
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    id 'org.spongepowered.mixin' version '0.7.+'
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.148'
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
-    id 'org.jetbrains.kotlin.plugin.serialization' version "${kotlin_version}"
-    id 'org.jetbrains.dokka' version "1.9.10"
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-compileKotlin {
-    kotlinOptions.jvmTarget = "17"
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+kotlin {
+    compilerOptions.jvmTarget = JvmTarget.JVM_21
 }
 
 version = "${minecraft_version}-${mod_version}"
+base.archivesName = archivesbasename
 
 //////////////////
 // Dependencies //
@@ -25,124 +26,97 @@ version = "${minecraft_version}-${mod_version}"
 repositories {
     mavenCentral()
     maven {
-        name 'Kotlin for Forge'
-        url 'https://thedarkcolour.github.io/KotlinForForge/'
+        name = 'Kotlin for Forge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
         content { includeGroup "thedarkcolour" }
     }
 }
 
 configurations {
-    shade
-    implementation.extendsFrom shade
+    runtimeClasspath.extendsFrom localRuntime
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
 
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-
-    implementation "thedarkcolour:kotlinforforge:${kotlinforforge_version}"
-
-    shade "com.googlecode.soundlibs:jlayer:1.0.1.4"
+    // MP3 decoding. Plain library (not a mod), so it is bundled into the jar with Jar-in-Jar
+    // and added to the dev runtime classpath separately.
+    implementation("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
+    jarJar("com.googlecode.soundlibs:jlayer") {
+        transitive = false
+        version {
+            strictly "[${jlayer_version},)"
+            prefer jlayer_version
+        }
+    }
+    additionalRuntimeClasspath("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
 }
 
-minecraft {
-    mappings channel: mappings_channel, version: mappings_version
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
     runs {
         configureEach {
-            lazyToken('minecraft_classpath') {
-                configurations.shade
-                    .copyRecursive()
-                    .resolve()
-                    .collect { it.absolutePath }
-                    .join(File.pathSeparator)
-            }
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
         }
         client {
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', 'betterrecords'
-            workingDirectory project.file('run')
-            mods {
-                betterrecords {
-                    source sourceSets.main
-                }
-            }
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
         server {
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', 'betterrecords'
-            workingDirectory project.file('run')
-            mods {
-                betterrecords {
-                    source sourceSets.main
-                }
-            }
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
         }
     }
 }
 
-mixin {
-    add(sourceSets.main, "mixins.betterrecords.refmap.json")
-    config("mixins.betterrecords.json")
-}
-
 ///////////////
 // Artifacts //
-//////////////
+///////////////
 
 def replacedProperties = [
-        version: version,
-        loader_range: loader_range,
-        forge_range: forge_range,
+        version        : version,
+        mod_id         : mod_id,
+        mod_name       : mod_name,
+        mod_license    : mod_license,
+        author         : author,
+        loader_range   : loader_range,
+        neo_range      : neo_range,
         minecraft_range: minecraft_range,
 ]
 
 processResources {
     inputs.properties(replacedProperties)
 
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+    filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
         expand(replacedProperties)
     }
 }
 
-shadowJar {
-    archiveClassifier = ''
-    configurations = [project.configurations.shade]
-
-    relocate 'javazoom', 'com.hemogoblins.betterrecords.shadow.javazoom'
-
-    finalizedBy 'reobfShadowJar'
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
 
-reobf {
-    shadowJar {}
+java {
+    withSourcesJar()
 }
 
-tasks.named('jar') {
-    archiveClassifier = 'slim'
-}
-
-assemble.dependsOn shadowJar
-
-task deobfJar(type: Jar) {
-    from sourceSets.main.output
-    archiveClassifier = 'deobf'
-}
-
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allJava
-    archiveClassifier = 'sources'
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    from javadoc.destinationDir
-    archiveClassifier = 'javadoc'
-}
-
-artifacts {
-    archives deobfJar
-    archives sourcesJar
-    archives javadocJar
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }

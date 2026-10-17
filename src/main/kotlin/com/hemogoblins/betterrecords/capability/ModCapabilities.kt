@@ -1,22 +1,30 @@
 package com.hemogoblins.betterrecords.capability
 
-import com.hemogoblins.betterrecords.api.capability.IColorable
-import com.hemogoblins.betterrecords.api.capability.IMusicHolder
-import net.minecraftforge.common.capabilities.CapabilityManager
-import net.minecraftforge.common.capabilities.CapabilityToken
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.eventbus.api.SubscribeEvent
+import com.hemogoblins.betterrecords.block.ModBlocks
+import com.hemogoblins.betterrecords.block.entity.SingleSlotBlockEntity
+import net.minecraft.core.Direction
+import net.neoforged.bus.api.IEventBus
+import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.capabilities.Capabilities
+import net.neoforged.neoforge.capabilities.ICapabilityProvider
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
+import net.neoforged.neoforge.items.IItemHandler
 
+/**
+ * Capability registration.
+ *
+ * Record data that used to be stored in item capabilities (colour, music) now lives in
+ * [com.hemogoblins.betterrecords.component.ModDataComponents]. The only capability left is the
+ * item handler exposed by the single slot block entities, so hoppers and pipes can still insert records.
+ */
 object ModCapabilities {
-
-    val COLORABLE_CAPABILITY = CapabilityManager.get(object : CapabilityToken<IColorable>() {})
-    val MUSIC_HOLDER_CAPABILITY = CapabilityManager.get(object : CapabilityToken<IMusicHolder>() {})
 
     @SubscribeEvent
     fun registerCapabilities(event: RegisterCapabilitiesEvent) {
-        event.register(IColorable::class.java)
-        event.register(IMusicHolder::class.java)
+        val itemHandler = ICapabilityProvider<SingleSlotBlockEntity<*>, Direction?, IItemHandler> { be, _ -> be.itemHandler }
+
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlocks.RECORD_ETCHER_ENTITY.get(), itemHandler)
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlocks.RECORD_PLAYER_ENTITY.get(), itemHandler)
     }
 
     fun register(eventBus: IEventBus) {

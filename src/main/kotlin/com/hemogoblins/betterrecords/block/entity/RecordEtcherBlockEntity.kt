@@ -4,6 +4,7 @@ import com.hemogoblins.betterrecords.BetterRecords
 import com.hemogoblins.betterrecords.block.ModBlocks
 import com.hemogoblins.betterrecords.menu.RecordEtcherMenu
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 import net.minecraft.world.MenuProvider
@@ -41,8 +42,8 @@ class RecordEtcherBlockEntity(
         return Component.translatable("menu.${BetterRecords.ID}.record_etcher.title")
     }
 
-    override fun load(tag: CompoundTag) {
-        super.load(tag)
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
         updateNeedleController()
     }
     override fun triggerUpdate() {

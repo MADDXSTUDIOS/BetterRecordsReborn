@@ -29,6 +29,8 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          # Actions runs bash with -e -o pipefail, and a grep with no matches would end the step early
+          set +e +o pipefail
           annotate() {
             local title="$1"
             local msg

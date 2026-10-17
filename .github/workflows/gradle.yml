@@ -24,24 +24,27 @@ jobs:
           set -o pipefail
           ./gradlew :build --stacktrace 2>&1 | tee build-output.log
 
-      # Surface compile errors as annotations so they show up on the PR / commit without opening the log
+      # Surface compile errors as annotations so they show up on the commit without opening the log
       - name: Report Build Errors
         if: failure()
         shell: bash
         run: |
-          report() {
-            local title="$1"; shift
+          annotate() {
+            local title="$1"
             local msg
-            msg=$(grep -E "$@" build-output.log | head -120)
-            [ -z "$msg" ] && return
+            msg=$(cat)
+            if [ -z "$msg" ]; then return 0; fi
             msg="${msg//'%'/'%25'}"
             msg="${msg//$'\r'/}"
             msg="${msg//$'\n'/'%0A'}"
             echo "::error title=${title}::${msg}"
           }
-          report "Kotlin errors" "^e: "
-          report "Java errors" -A2 "\.java:[0-9]+: error"
-          report "Gradle failure" -A12 "What went wrong"
+          ls -la build-output.log || true
+          grep -E "^e: " build-output.log | head -100 | annotate "Kotlin errors"
+          grep -E -A2 "\.java:[0-9]+: error" build-output.log | head -100 | annotate "Java errors"
+          grep -A15 "What went wrong" build-output.log | head -60 | annotate "Gradle failure"
+          tail -n 80 build-output.log | annotate "Build output tail"
+          exit 0
 
       - name: Upload Jar
         uses: actions/upload-artifact@v4

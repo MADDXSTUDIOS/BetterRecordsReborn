@@ -19,7 +19,29 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run Gradle Build
-        run: ./gradlew :build --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew :build --stacktrace 2>&1 | tee build-output.log
+
+      # Surface compile errors as annotations so they show up on the PR / commit without opening the log
+      - name: Report Build Errors
+        if: failure()
+        shell: bash
+        run: |
+          report() {
+            local title="$1"; shift
+            local msg
+            msg=$(grep -E "$@" build-output.log | head -120)
+            [ -z "$msg" ] && return
+            msg="${msg//'%'/'%25'}"
+            msg="${msg//$'\r'/}"
+            msg="${msg//$'\n'/'%0A'}"
+            echo "::error title=${title}::${msg}"
+          }
+          report "Kotlin errors" "^e: "
+          report "Java errors" -A2 "\.java:[0-9]+: error"
+          report "Gradle failure" -A12 "What went wrong"
 
       - name: Upload Jar
         uses: actions/upload-artifact@v4

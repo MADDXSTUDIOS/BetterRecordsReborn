@@ -36,22 +36,6 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
-dependencies {
-    implementation "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
-
-    // MP3 decoding. Plain library (not a mod), so it is bundled into the jar with Jar-in-Jar
-    // and added to the dev runtime classpath separately.
-    implementation("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
-    jarJar("com.googlecode.soundlibs:jlayer") {
-        transitive = false
-        version {
-            strictly "[${jlayer_version},)"
-            prefer jlayer_version
-        }
-    }
-    additionalRuntimeClasspath("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
-}
-
 neoForge {
     version = project.neo_version
 
@@ -81,6 +65,23 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+}
+
+// Must come after the neoForge block, which creates the additionalRuntimeClasspath configuration
+dependencies {
+    implementation "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
+
+    // MP3 decoding. Plain library (not a mod), so it is bundled into the jar with Jar-in-Jar
+    // and added to the dev runtime classpath separately.
+    implementation("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
+    jarJar("com.googlecode.soundlibs:jlayer") {
+        transitive = false
+        version {
+            strictly "[${jlayer_version},)"
+            prefer jlayer_version
+        }
+    }
+    additionalRuntimeClasspath("com.googlecode.soundlibs:jlayer:${jlayer_version}") { transitive = false }
 }
 
 ///////////////

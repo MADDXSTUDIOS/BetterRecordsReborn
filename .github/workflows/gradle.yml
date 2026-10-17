@@ -48,6 +48,13 @@ jobs:
           tail -n 80 build-output.log | annotate "Build output tail"
           exit 0
 
+      - name: List jar contents
+        shell: bash
+        run: |
+          for jar in build/libs/*.jar; do
+            echo "::notice title=$(basename $jar)::$(unzip -l "$jar" | grep -E 'META-INF/(jarjar|neoforge|accesstransformer)|mixins|jlayer|\.kt|BetterRecords.class' | awk '{print $4}' | head -20 | paste -sd ' ' -)"
+          done
+
       - name: Upload Jar
         uses: actions/upload-artifact@v4
         with:
@@ -124,6 +131,7 @@ jobs:
           for side in server client; do
             result=$(cat $side-result.txt 2>/dev/null || echo "${side^^}_NOT_RUN")
             echo "$result" | annotate notice "Smoke test $side"
+            grep -E 'betterrecords' $side.log | grep -vE 'WARN|ERROR' | grep -E 'Registered audio|Initializ|betterrecords:|Loading|mods' | cut -c1-220 | head -15 | annotate notice "$side: betterrecords log"
             grep -iE 'betterrecords|kotlinforforge|mixin' $side.log | grep -iE 'error|exception|fail|warn' | head -40 | annotate warning "$side: mod warnings"
             grep -iE -A25 'Minecraft Crash Report|Exception in|Caused by|Mixin apply failed|ModLoadingException|Loading errors' $side.log | head -80 | annotate error "$side: crash"
           done

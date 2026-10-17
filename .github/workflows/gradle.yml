@@ -54,3 +54,79 @@ jobs:
           name: betterrecords-jar
           path: build/libs/*.jar
           if-no-files-found: error
+
+  # Boots a dedicated server and a headless client with the mod loaded, to catch
+  # loading crashes (registries, mixins, mods.toml) before anyone tests the jar by hand.
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install virtual display
+        run: sudo apt-get update -q && sudo apt-get install -yq xvfb mesa-utils libgl1-mesa-dri
+
+      - name: Boot dedicated server
+        shell: bash
+        run: |
+          set +e +o pipefail
+          mkdir -p run && echo "eula=true" > run/eula.txt
+          timeout 600 ./gradlew runServer 2>&1 | tee server.log &
+          for i in $(seq 1 120); do
+            grep -q 'Done (' server.log && break
+            grep -q -e 'Crash report' -e 'BUILD FAILED' server.log && break
+            sleep 5
+          done
+          pkill -f 'neoforge' ; pkill -f gradle ; sleep 5
+          if grep -q 'Done (' server.log; then echo "SERVER_OK" > server-result.txt; else echo "SERVER_FAILED" > server-result.txt; fi
+          cat server-result.txt
+
+      - name: Boot client (headless)
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set +e +o pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" timeout 900 ./gradlew runClient 2>&1 | tee client.log &
+          for i in $(seq 1 170); do
+            grep -q -e 'textures/atlas/blocks.png-atlas' client.log && grep -q 'Sound engine started\|OpenAL' client.log && { sleep 20; break; }
+            grep -q -e 'Crash report' -e 'BUILD FAILED' -e 'Minecraft Crash Report' client.log && break
+            sleep 5
+          done
+          pkill -f 'neoforge' ; pkill -f gradle ; sleep 5
+          if grep -q 'textures/atlas/blocks.png-atlas' client.log && ! grep -q 'Minecraft Crash Report' client.log; then echo "CLIENT_OK" > client-result.txt; else echo "CLIENT_FAILED" > client-result.txt; fi
+          cat client-result.txt
+
+      - name: Report smoke test
+        if: always()
+        shell: bash
+        run: |
+          set +e +o pipefail
+          annotate() {
+            local level="$1" title="$2" msg
+            msg=$(cat)
+            if [ -z "$msg" ]; then return 0; fi
+            msg="${msg//'%'/'%25'}"
+            msg="${msg//$'\r'/}"
+            msg="${msg//$'\n'/'%0A'}"
+            echo "::${level} title=${title}::${msg}"
+          }
+          for side in server client; do
+            result=$(cat $side-result.txt 2>/dev/null || echo "${side^^}_NOT_RUN")
+            echo "$result" | annotate notice "Smoke test $side"
+            grep -iE 'betterrecords|kotlinforforge|mixin' $side.log | grep -iE 'error|exception|fail|warn' | head -40 | annotate warning "$side: mod warnings"
+            grep -iE -A25 'Minecraft Crash Report|Exception in|Caused by|Mixin apply failed|ModLoadingException|Loading errors' $side.log | head -80 | annotate error "$side: crash"
+          done
+          grep -h 'Crash report saved\|crash-reports' server.log client.log | head -5 | annotate notice "Crash report paths"
+          for f in run/crash-reports/*.txt; do [ -f "$f" ] && head -60 "$f" | annotate error "crash report $f"; done
+          exit 0

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "betterrecords:block/small_speaker"
+    },
+    "facing=east": {
+      "model": "betterrecords:block/small_speaker",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "betterrecords:block/small_speaker",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "betterrecords:block/small_speaker",
+      "y": 270
+    }
+  }
+}

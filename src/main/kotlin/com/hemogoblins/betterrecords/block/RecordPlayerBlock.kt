@@ -1,6 +1,10 @@
 package com.hemogoblins.betterrecords.block
 
 import com.hemogoblins.betterrecords.block.entity.RecordPlayerBlockEntity
+import com.hemogoblins.betterrecords.item.WireCutterItem
+import com.hemogoblins.betterrecords.item.WireItem
+import com.hemogoblins.betterrecords.wire.WireConnections
+import net.minecraft.server.level.ServerLevel
 import com.mojang.serialization.MapCodec
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -79,6 +83,10 @@ class RecordPlayerBlock(properties: Properties) : BaseEntityBlock(properties) {
             hand: InteractionHand,
             hit: BlockHitResult
     ): ItemInteractionResult {
+        // Let wires and cutters do their thing instead of opening the lid / popping the record out.
+        if (stack.item is WireItem || stack.item is WireCutterItem) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION
+        }
         return if (interact(state, level, pos, player, stack)) {
             ItemInteractionResult.sidedSuccess(level.isClientSide)
         } else {
@@ -128,7 +136,10 @@ class RecordPlayerBlock(properties: Properties) : BaseEntityBlock(properties) {
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
-            (level.getBlockEntity(pos) as? RecordPlayerBlockEntity)?.stopPlaying()
+            (level.getBlockEntity(pos) as? RecordPlayerBlockEntity)?.let {
+                if (level is ServerLevel) WireConnections.disconnectAll(level, it, dropWireAt = pos)
+                it.stopPlaying()
+            }
         }
 
         super.onRemove(state, level, pos, newState, isMoving)

@@ -10,6 +10,7 @@ object BRConfig {
 
     fun register() {
         ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.CLIENT, Client.spec)
+        ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.SERVER, Server.spec)
     }
 
     object Client {
@@ -52,7 +53,30 @@ object BRConfig {
     object Common {
     }
 
+    /** Server config, synced to clients on join so both sides agree on wire length and radius. */
     object Server {
+        val spec: ModConfigSpec
 
+        val wireLength: ModConfigSpec.IntValue
+        val maxSpeakerRadius: ModConfigSpec.IntValue
+
+        init {
+            val builder = ModConfigSpec.Builder()
+
+            builder
+                .comment("Speakers and wires")
+                .push("speakers")
+
+            wireLength = builder
+                .comment("Maximum length of a speaker wire, in blocks")
+                .defineInRange("wireLength", 16, 5, 80)
+
+            maxSpeakerRadius = builder
+                .comment("Maximum distance a record player can be heard from, in blocks, including speakers. -1 for no limit")
+                .defineInRange("maxSpeakerRadius", -1, -1, 1000)
+
+            builder.pop()
+            spec = builder.build()
+        }
     }
 }

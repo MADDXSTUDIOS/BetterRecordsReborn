@@ -1,6 +1,9 @@
 package com.hemogoblins.betterrecords.block.entity
 
+import com.hemogoblins.betterrecords.BRConfig
 import com.hemogoblins.betterrecords.block.ModBlocks
+import com.hemogoblins.betterrecords.block.SpeakerBlock
+import com.hemogoblins.betterrecords.block.SpeakerSize
 import com.hemogoblins.betterrecords.block.RecordPlayerBlock
 import com.hemogoblins.betterrecords.block.RecordPlayerBlock.Companion.FACING
 import com.hemogoblins.betterrecords.network.clientbound.PlayRecordPacket
@@ -29,6 +32,10 @@ class RecordPlayerBlockEntity(
 
     companion object {
         const val NBT_TAG_PLAYING = "isPlaying"
+        const val NBT_TAG_SPEAKERS = "speakers"
+
+        /** How far a record player can be heard on its own, in blocks. */
+        const val BASE_RADIUS = 64f
 
         val animationTicker = BlockEntityTicker<RecordPlayerBlockEntity> { _, _, _, entity ->
             entity.lidController.tickLid()
@@ -42,6 +49,53 @@ class RecordPlayerBlockEntity(
     fun getArmOpenness(partialTick: Float) = armController.getOpenness(partialTick)
 
     var isPlaying = false
+
+    /** Speakers wired to this player. Synced to clients so they can work out volume and draw the wires. */
+    val speakers: List<BlockPos> get() = speakerList
+    private val speakerList = mutableListOf<BlockPos>()
+
+    fun addSpeaker(pos: BlockPos) {
+        if (pos !in speakerList) {
+            speakerList.add(pos.immutable())
+            onSpeakersChanged()
+        }
+    }
+
+    fun removeSpeaker(pos: BlockPos) {
+        if (speakerList.remove(pos)) onSpeakersChanged()
+    }
+
+    fun clearSpeakers() {
+        if (speakerList.isNotEmpty()) {
+            speakerList.clear()
+            onSpeakersChanged()
+        }
+    }
+
+    private fun onSpeakersChanged() {
+        setChanged()
+        level?.sendBlockUpdated(blockPos, blockState, blockState, net.minecraft.world.level.block.Block.UPDATE_CLIENTS)
+    }
+
+    /** Speakers that are still there, paired with their size. Unloaded or missing speakers don't count. */
+    fun connectedSpeakers(): List<Pair<BlockPos, SpeakerSize>> {
+        val lvl = level ?: return emptyList()
+        return speakerList.mapNotNull { pos ->
+            if (!lvl.isLoaded(pos)) return@mapNotNull null
+            (lvl.getBlockState(pos).block as? SpeakerBlock)?.let { pos to it.size }
+        }
+    }
+
+    /**
+     * How far the record can be heard, in blocks, measured from the player or whichever speaker is closest.
+     * Each speaker adds to the radius (1.12.2 behaviour), capped by the server config.
+     */
+    val songRadius: Float
+        get() {
+            val radius = BASE_RADIUS + connectedSpeakers().sumOf { it.second.radiusIncrease.toDouble() }.toFloat()
+            val max = BRConfig.Server.maxSpeakerRadius.get()
+            return if (max < 0) radius else minOf(radius, max.toFloat())
+        }
 
     fun toggleOpenState(state: BlockState, boo: Boolean) {
         level!!.setBlock(this.blockPos, state.setValue(RecordPlayerBlock.OPEN, boo), 3)
@@ -126,10 +180,18 @@ class RecordPlayerBlockEntity(
             togglePlaying(it.getBoolean(NBT_TAG_PLAYING))
         }
 
+        speakerList.clear()
+        if (tag.contains(NBT_TAG_SPEAKERS)) {
+            tag.getLongArray(NBT_TAG_SPEAKERS).mapTo(speakerList) { BlockPos.of(it) }
+        }
+
         lidController.shouldBeOpen(RecordPlayerBlock.isOpen(blockState))
     }
 
     override fun writeTag(tag: CompoundTag): CompoundTag {
-        return tag.apply { putBoolean(NBT_TAG_PLAYING, isPlaying) }
+        return tag.apply {
+            putBoolean(NBT_TAG_PLAYING, isPlaying)
+            putLongArray(NBT_TAG_SPEAKERS, speakerList.map { it.asLong() }.toLongArray())
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.hemogoblins.betterrecords.component
 
 import com.hemogoblins.betterrecords.BetterRecords
 import com.mojang.serialization.Codec
+import net.minecraft.core.BlockPos
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.network.codec.ByteBufCodecs
 import net.neoforged.bus.api.IEventBus
@@ -33,6 +34,14 @@ object ModDataComponents {
             builder
                 .persistent(MusicData.CODEC)
                 .networkSynchronized(MusicData.STREAM_CODEC)
+        }
+
+    /** On a speaker wire: the block the first end of the wire was attached to, until the second end is placed. */
+    val WIRE_START: DeferredHolder<DataComponentType<*>, DataComponentType<BlockPos>> =
+        DATA_COMPONENTS.registerComponentType<BlockPos>("wire_start") { builder ->
+            builder
+                .persistent(BlockPos.CODEC)
+                .networkSynchronized(BlockPos.STREAM_CODEC)
         }
 
     fun register(eventBus: IEventBus) {

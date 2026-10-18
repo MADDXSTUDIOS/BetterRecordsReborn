@@ -3,6 +3,7 @@ package com.hemogoblins.betterrecords.block
 import com.hemogoblins.betterrecords.BetterRecords
 import com.hemogoblins.betterrecords.block.entity.RecordEtcherBlockEntity
 import com.hemogoblins.betterrecords.block.entity.RecordPlayerBlockEntity
+import com.hemogoblins.betterrecords.block.entity.SpeakerBlockEntity
 import com.hemogoblins.betterrecords.item.ModItems
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.BlockItem
@@ -31,6 +32,12 @@ object ModBlocks {
         RecordPlayerBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.JUKEBOX).noOcclusion())
     }
 
+    val SMALL_SPEAKER: DeferredBlock<SpeakerBlock> = registerSpeaker(SpeakerSize.SMALL, 2.0f)
+    val MEDIUM_SPEAKER: DeferredBlock<SpeakerBlock> = registerSpeaker(SpeakerSize.MEDIUM, 3.0f)
+    val LARGE_SPEAKER: DeferredBlock<SpeakerBlock> = registerSpeaker(SpeakerSize.LARGE, 4.0f)
+
+    val SPEAKERS = listOf(SMALL_SPEAKER, MEDIUM_SPEAKER, LARGE_SPEAKER)
+
     val RECORD_ETCHER_ENTITY: DeferredHolder<BlockEntityType<*>, BlockEntityType<RecordEtcherBlockEntity>> =
         registerBlockEntity("record_etcher") {
             BlockEntityType.Builder.of(::RecordEtcherBlockEntity, RECORD_ETCHER.get()).build(null)
@@ -39,6 +46,11 @@ object ModBlocks {
     val RECORD_PLAYER_ENTITY: DeferredHolder<BlockEntityType<*>, BlockEntityType<RecordPlayerBlockEntity>> =
         registerBlockEntity("record_player") {
             BlockEntityType.Builder.of(::RecordPlayerBlockEntity, RECORD_PLAYER.get()).build(null)
+        }
+
+    val SPEAKER_ENTITY: DeferredHolder<BlockEntityType<*>, BlockEntityType<SpeakerBlockEntity>> =
+        registerBlockEntity("speaker") {
+            BlockEntityType.Builder.of(::SpeakerBlockEntity, *SPEAKERS.map { it.get() }.toTypedArray()).build(null)
         }
 
     fun register(eventBus: IEventBus) {
@@ -51,6 +63,16 @@ object ModBlocks {
             registerBlockItem(name, this)
         }
     }
+
+    private fun registerSpeaker(size: SpeakerSize, strength: Float): DeferredBlock<SpeakerBlock> =
+        registerBlock("${size.id}_speaker") {
+            SpeakerBlock(
+                size,
+                BlockBehaviour.Properties.ofFullCopy(Blocks.NOTE_BLOCK)
+                    .strength(strength, strength * 3)
+                    .noOcclusion()
+            )
+        }
 
     private fun <T : Block> registerBlockItem(name: String, block: DeferredBlock<T>): DeferredItem<BlockItem> {
         return ModItems.registerItem(name) { BlockItem(block.get(), Item.Properties()) }

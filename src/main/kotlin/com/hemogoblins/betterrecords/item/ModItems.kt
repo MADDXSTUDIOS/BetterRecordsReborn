@@ -22,6 +22,14 @@ object ModItems {
         RecordItem(Item.Properties().stacksTo(1))
     }
 
+    val WIRE: DeferredItem<WireItem> = registerItem("wire") {
+        WireItem(Item.Properties())
+    }
+
+    val WIRE_CUTTERS: DeferredItem<WireCutterItem> = registerItem("wire_cutters") {
+        WireCutterItem(Item.Properties().stacksTo(1).durability(238))
+    }
+
     // TODO: Move somewhere common to items and blocks
     val CREATIVE_TAB: DeferredHolder<CreativeModeTab, CreativeModeTab> = CREATIVE_TABS.register(BetterRecords.ID, Supplier {
         with(CreativeModeTab.builder()) {
@@ -33,6 +41,9 @@ object ModItems {
                     accept(RECORD.get())
                     accept(ModBlocks.RECORD_ETCHER.get())
                     accept(ModBlocks.RECORD_PLAYER.get())
+                    ModBlocks.SPEAKERS.forEach { accept(it.get()) }
+                    accept(WIRE.get())
+                    accept(WIRE_CUTTERS.get())
                 }
             }
 

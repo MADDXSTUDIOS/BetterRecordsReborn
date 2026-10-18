@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LLW",
+    "CSW",
+    "LLW"
+  ],
+  "key": {
+    "L": {
+      "tag": "minecraft:logs"
+    },
+    "W": {
+      "item": "minecraft:black_wool"
+    },
+    "C": {
+      "item": "minecraft:comparator"
+    },
+    "S": {
+      "item": "betterrecords:small_speaker"
+    }
+  },
+  "result": {
+    "id": "betterrecords:medium_speaker",
+    "count": 1
+  }
+}

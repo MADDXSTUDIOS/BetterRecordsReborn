@@ -23,6 +23,14 @@ import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.core.component.DataComponents
+import com.hemogoblins.betterrecords.item.WireCutterItem
+import com.hemogoblins.betterrecords.item.WireItem
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.Font
+import net.minecraft.network.chat.Component
+import net.minecraft.world.phys.AABB
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : BlockEntityRenderer<RecordPlayerBlockEntity> {
 
@@ -100,6 +108,83 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
         this.renderRecord(entity.getSlottedItem(), toRot, poseStack, bufferSource, packedLight, packedOverlay, entity.level)
 
         poseStack.popPose()
+
+        // Drawn last, in the block's own (unrotated) space, since they grab their own buffers.
+        if (isHoldingWireTool()) {
+            renderWires(entity, poseStack, bufferSource)
+            renderWireInfo(entity, poseStack, bufferSource, packedLight)
+        }
+    }
+
+    /** Wires and the play radius are only shown while holding a wire or wire cutters, like 1.12.2. */
+    private fun isHoldingWireTool(): Boolean {
+        val player = Minecraft.getInstance().player ?: return false
+        return listOf(player.mainHandItem, player.offhandItem).any { it.item is WireItem || it.item is WireCutterItem }
+    }
+
+    private fun renderWires(entity: RecordPlayerBlockEntity, poseStack: PoseStack, bufferSource: MultiBufferSource) {
+        val speakers = entity.speakers
+        if (speakers.isEmpty()) return
+
+        val lines = bufferSource.getBuffer(RenderType.lines())
+        val pose = poseStack.last()
+        val origin = entity.blockPos
+
+        for (speaker in speakers) {
+            // From the top of the record player to the middle of the speaker, relative to this block.
+            val x1 = 0.5f
+            val y1 = 0.9f
+            val z1 = 0.5f
+            val x2 = (speaker.x - origin.x) + 0.5f
+            val y2 = (speaker.y - origin.y) + 0.5f
+            val z2 = (speaker.z - origin.z) + 0.5f
+
+            val dx = x2 - x1
+            val dy = y2 - y1
+            val dz = z2 - z1
+            val len = sqrt(dx * dx + dy * dy + dz * dz).takeIf { it > 0f } ?: continue
+
+            lines.addVertex(pose, x1, y1, z1).setColor(20, 20, 20, 255).setNormal(pose, dx / len, dy / len, dz / len)
+            lines.addVertex(pose, x2, y2, z2).setColor(20, 20, 20, 255).setNormal(pose, dx / len, dy / len, dz / len)
+        }
+    }
+
+    /** Floating "Play Radius" text above the player, plus a count of each speaker size. */
+    private fun renderWireInfo(entity: RecordPlayerBlockEntity, poseStack: PoseStack, bufferSource: MultiBufferSource, packedLight: Int) {
+        val mc = Minecraft.getInstance()
+        val font = mc.font
+
+        val lineList = mutableListOf<Component>(
+            Component.translatable("overlay.${BetterRecords.ID}.play_radius", entity.songRadius.roundToInt())
+        )
+        entity.connectedSpeakers()
+            .groupingBy { it.second }
+            .eachCount()
+            .toSortedMap()
+            .forEach { (size, count) ->
+                lineList += Component.translatable("overlay.${BetterRecords.ID}.speaker_count", count, Component.translatable("block.${BetterRecords.ID}.${size.id}_speaker"))
+            }
+
+        poseStack.pushPose()
+        poseStack.translate(0.5f, 1.4f + lineList.size * 0.25f, 0.5f)
+        poseStack.mulPose(mc.entityRenderDispatcher.cameraOrientation())
+        poseStack.scale(0.025f, -0.025f, 0.025f)
+
+        val matrix = poseStack.last().pose()
+        val background = (mc.options.getBackgroundOpacity(0.25f) * 255f).toInt() shl 24
+        lineList.forEachIndexed { i, line ->
+            val x = -font.width(line) / 2f
+            font.drawInBatch(line, x, i * 10f, 0xFFFFFF, false, matrix, bufferSource, Font.DisplayMode.NORMAL, background, packedLight)
+        }
+        poseStack.popPose()
+    }
+
+    // Wires can reach well past the block, so don't cull the renderer just because the player block is off screen.
+    override fun getRenderBoundingBox(blockEntity: RecordPlayerBlockEntity): AABB {
+        val pos = blockEntity.blockPos
+        var box = AABB(pos).inflate(0.0, 1.5, 0.0)
+        for (speaker in blockEntity.speakers) box = box.minmax(AABB(speaker))
+        return box
     }
 
     private fun renderLid(

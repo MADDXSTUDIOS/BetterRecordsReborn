@@ -7,6 +7,7 @@ import com.hemogoblins.betterrecords.client.sound.RecordPlayingSound;
 import com.hemogoblins.betterrecords.api.client.sound.RecordAudioStream;
 import com.hemogoblins.betterrecords.client.sound.ProgressInputStream;
 import com.hemogoblins.betterrecords.client.sound.RecordSoundManager;
+import com.hemogoblins.betterrecords.client.sound.RecordVolume;
 import com.mojang.blaze3d.audio.Channel;
 import com.mojang.blaze3d.audio.Library;
 import com.mojang.blaze3d.audio.SoundBuffer;
@@ -15,7 +16,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.ChannelAccess;
 import net.minecraft.client.sounds.SoundEngine;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -49,36 +49,7 @@ public abstract class MixinSoundEngine {
     @Unique
     private final Set<RecordPlayingSound> betterRecords$loading = new HashSet<>();
 
-    // TODO: Ability to boost and reduce the distance of sounds based on their network.
-    // For now, four chunks is pretty good.
-
-    /** Maximum distance in blocks at which the sound can be heard */
-    @Unique
-    private static final float MAX_DISTANCE = 64.0F;
-
-    /** Base volume of the sound */
-    @Unique
-    private static final float BASE_VOLUME = 1.0F;
-
-    /**
-     * Calculates the volume of a sound based on the distance between the player and the sound source.
-     * The volume decreases linearly with distance, reaching 0 at MAX_DISTANCE.
-     *
-     * @param soundPos The position of the sound source
-     * @return The calculated volume
-     */
-    @Unique
-    private float betterRecords$calculateVolumeByDistance(Vec3 soundPos) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) return BASE_VOLUME;
-
-        Vec3 playerPos = minecraft.player.position();
-        double distance = playerPos.distanceTo(soundPos);
-
-        // Linear attenuation: volume decreases linearly with distance
-        if (distance >= MAX_DISTANCE) return 0.0F;
-        return BASE_VOLUME * (1.0F - (float)(distance / MAX_DISTANCE));
-    }
+    // Volume by distance (including speakers) lives in RecordVolume, so it can see the record player's wiring.
 
     @Inject(method="play(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
     public void onPlay(SoundInstance sound, CallbackInfo ci) {
@@ -147,12 +118,11 @@ public abstract class MixinSoundEngine {
             return;
         }
 
-        // TODO: Should this just be a blockpos?
-        Vec3 soundPos = new Vec3(recordSound.getX(), recordSound.getY(), recordSound.getZ());
+        float volume = RecordVolume.forRecordAt(recordSound.getPos());
 
         channelHandle.execute((channel) -> {
             channel.setPitch(recordSound.getPitch());
-            channel.setVolume(betterRecords$calculateVolumeByDistance(soundPos));
+            channel.setVolume(volume);
             channel.attachStaticBuffer(soundBuffer);
             channel.play();
         });
@@ -197,8 +167,7 @@ public abstract class MixinSoundEngine {
                 continue;
             }
 
-            Vec3 soundPos = new Vec3(sound.getX(), sound.getY(), sound.getZ());
-            float volume = betterRecords$calculateVolumeByDistance(soundPos);
+            float volume = RecordVolume.forRecordAt(sound.getPos());
             handle.execute(channel -> channel.setVolume(volume));
         }
     }

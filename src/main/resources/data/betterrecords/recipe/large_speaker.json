@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LLW",
+    "EMW",
+    "LLW"
+  ],
+  "key": {
+    "L": {
+      "tag": "minecraft:logs"
+    },
+    "W": {
+      "item": "minecraft:black_wool"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    },
+    "M": {
+      "item": "betterrecords:medium_speaker"
+    }
+  },
+  "result": {
+    "id": "betterrecords:large_speaker",
+    "count": 1
+  }
+}

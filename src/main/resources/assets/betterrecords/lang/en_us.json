@@ -1,11 +1,8 @@
 {
   "item_group.betterrecords": "Better Records",
-
   "item.betterrecords.record": "Record",
-
   "block.betterrecords.record_etcher": "Record Etcher",
   "block.betterrecords.record_player": "Record Player",
-
   "menu.betterrecords.record_etcher.title": "Record Etcher",
   "menu.betterrecords.record_etcher.etch": "Etch",
   "menu.betterrecords.record_etcher.url": "Song URL",
@@ -14,5 +11,21 @@
   "menu.betterrecords.record_etcher.error.empty_url": "Enter a song URL",
   "menu.betterrecords.record_etcher.error.no_record": "Insert a record to etch",
   "menu.betterrecords.record_etcher.error.download_failed": "Could not download song",
-  "menu.betterrecords.record_etcher.error.not_audio": "Not an audio file: (%s)"
+  "menu.betterrecords.record_etcher.error.not_audio": "Not an audio file: (%s)",
+  "block.betterrecords.small_speaker": "Small Speaker",
+  "block.betterrecords.medium_speaker": "Medium Speaker",
+  "block.betterrecords.large_speaker": "Large Speaker",
+  "item.betterrecords.wire": "Speaker Wire",
+  "item.betterrecords.wire_cutters": "Wire Cutters",
+  "tooltip.betterrecords.wire.usage": "Right-click a record player, then a speaker",
+  "tooltip.betterrecords.wire.attached": "Attached to %s, %s, %s (sneak + right-click air to cancel)",
+  "message.betterrecords.wire.started": "Wire attached. Now right-click the other end",
+  "message.betterrecords.wire.connected": "Speaker connected",
+  "message.betterrecords.wire.already_connected": "Those are already connected",
+  "message.betterrecords.wire.too_far": "Too far apart for the wire",
+  "message.betterrecords.wire.invalid": "Wires go between a record player and a speaker",
+  "message.betterrecords.wire.cancelled": "Wire cancelled",
+  "message.betterrecords.wire.cut": "Wires cut",
+  "overlay.betterrecords.play_radius": "Play Radius: %s",
+  "overlay.betterrecords.speaker_count": "%sx %s"
 }

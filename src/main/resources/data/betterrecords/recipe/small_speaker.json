@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LLW",
+    "QDW",
+    "LLW"
+  ],
+  "key": {
+    "L": {
+      "tag": "minecraft:logs"
+    },
+    "W": {
+      "item": "minecraft:black_wool"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "id": "betterrecords:small_speaker",
+    "count": 1
+  }
+}

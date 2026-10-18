@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " T ",
+    "TET",
+    " T "
+  ],
+  "key": {
+    "T": {
+      "item": "minecraft:black_terracotta"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    }
+  },
+  "result": {
+    "id": "betterrecords:record",
+    "count": 1
+  }
+}

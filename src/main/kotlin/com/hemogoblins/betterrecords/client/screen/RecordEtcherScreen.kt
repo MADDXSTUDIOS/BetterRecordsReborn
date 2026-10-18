@@ -1,6 +1,7 @@
 package com.hemogoblins.betterrecords.client.screen
 
 import com.hemogoblins.betterrecords.BetterRecords
+import com.hemogoblins.betterrecords.client.cache.HttpStatusException
 import com.hemogoblins.betterrecords.client.cache.UnsupportedAudioTypeException
 import com.hemogoblins.betterrecords.menu.RecordEtcherMenu
 import com.hemogoblins.betterrecords.network.serverbound.RequestEtchPacket
@@ -143,10 +144,16 @@ class RecordEtcherScreen(
                 val unsupported = generateSequence(error) { it.cause.takeIf { c -> c !== it } }
                     .filterIsInstance<UnsupportedAudioTypeException>()
                     .firstOrNull()
-                if (unsupported != null) {
-                    setError("not_audio", unsupported.contentType)
-                } else {
-                    setError("download_failed")
+                val httpError = generateSequence(error) { it.cause.takeIf { c -> c !== it } }
+                    .filterIsInstance<HttpStatusException>()
+                    .firstOrNull()
+                val root = generateSequence(error) { it.cause.takeIf { c -> c !== it } }.last()
+                when {
+                    unsupported != null -> setError("not_audio", unsupported.contentType)
+                    httpError != null -> setError("http_status", httpError.status)
+                    root is java.net.UnknownHostException -> setError("unknown_host")
+                    root is java.net.SocketTimeoutException -> setError("timeout")
+                    else -> setError("download_failed")
                 }
                 BetterRecords.logger.error("Failed to download record for etching", error)
                 return@whenComplete

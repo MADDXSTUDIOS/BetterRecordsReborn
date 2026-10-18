@@ -36,7 +36,12 @@ class FilesystemCache(
         val tempName = UUID.randomUUID().toString()
         var lastReported = -1
         val file = downloadFile(url, File(tempDirectory, tempName)) { bytesRead, bytesTotal, complete ->
-            val percentage = ((bytesRead * 100) / bytesTotal).toInt()
+            // Servers that stream without a Content-Length report -1, so the bar only fills at the end.
+            val percentage = when {
+                complete -> 100
+                bytesTotal > 0 -> ((bytesRead * 100) / bytesTotal).toInt().coerceIn(0, 100)
+                else -> 0
+            }
 
             if (percentage % 10 == 0 && percentage != lastReported) {
                 BetterRecords.logger.info("Downloading $url as $tempName: $percentage%")

@@ -11,7 +11,7 @@
   "menu.betterrecords.record_etcher.error.empty_url": "Enter a song URL",
   "menu.betterrecords.record_etcher.error.no_record": "Insert a record to etch",
   "menu.betterrecords.record_etcher.error.download_failed": "Could not download song",
-  "menu.betterrecords.record_etcher.error.not_audio": "Not an audio file: (%s)",
+  "menu.betterrecords.record_etcher.error.not_audio": "Not an audio file (%s). Use a direct link",
   "block.betterrecords.small_speaker": "Small Speaker",
   "block.betterrecords.medium_speaker": "Medium Speaker",
   "block.betterrecords.large_speaker": "Large Speaker",
@@ -27,5 +27,8 @@
   "message.betterrecords.wire.cancelled": "Wire cancelled",
   "message.betterrecords.wire.cut": "Wires cut",
   "overlay.betterrecords.play_radius": "Play Radius: %s",
-  "overlay.betterrecords.speaker_count": "%sx %s"
+  "overlay.betterrecords.speaker_count": "%sx %s",
+  "menu.betterrecords.record_etcher.error.http_status": "Download failed (HTTP %s)",
+  "menu.betterrecords.record_etcher.error.unknown_host": "Can't reach that website",
+  "menu.betterrecords.record_etcher.error.timeout": "Download timed out"
 }

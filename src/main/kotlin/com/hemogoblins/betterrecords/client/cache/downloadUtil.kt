@@ -25,11 +25,19 @@ private const val MAX_REDIRECTS = 8
 // Some hosts (Dropbox included) refuse or serve a web page to Java's default "Java/21" user agent.
 private const val USER_AGENT = "Mozilla/5.0 (compatible; BetterRecords; +https://github.com/AngrySoundTech/BetterRecords)"
 
+/**
+ * File hosts label audio all sorts of ways (Dropbox sends `application/binary`), and the decoder
+ * sniffs the real format from the file's first bytes anyway. So only reject types that are clearly
+ * not audio, like the web page a share link opens when it isn't a direct download.
+ */
 private fun isAcceptableAudioType(contentType: String): Boolean {
-    return contentType.startsWith("audio/") ||
-        contentType == "application/ogg" ||
-        contentType == "application/octet-stream" ||
-        contentType == "binary/octet-stream"
+    return !(contentType.startsWith("text/") ||
+        contentType.startsWith("image/") ||
+        contentType.startsWith("video/") ||
+        contentType == "application/json" ||
+        contentType == "application/xml" ||
+        contentType == "application/xhtml+xml" ||
+        contentType == "application/javascript")
 }
 
 /**

@@ -213,9 +213,12 @@ class RecordEtcherScreen(
         if (downloading) {
             renderProgressBar(guiGraphics)
         } else {
-            statusMessage?.let {
-                val x = (imageWidth - font.width(it)) / 2
-                guiGraphics.drawString(font, it, x, 100, statusColor, false)
+            statusMessage?.let { message ->
+                // Wrap long errors so they stay inside the GUI
+                font.split(message, imageWidth - 12).forEachIndexed { i, line ->
+                    val x = (imageWidth - font.width(line)) / 2
+                    guiGraphics.drawString(font, line, x, 100 + i * (font.lineHeight + 1), statusColor, false)
+                }
             }
         }
     }

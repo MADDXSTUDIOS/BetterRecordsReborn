@@ -80,8 +80,9 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
             mulPose(Axis.YP.rotationDegrees(dir))
         }
 
+        // On 1.21, getBuffer() for a different RenderType ends the previous BufferBuilder,
+        // so everything drawn with `consumer` has to happen before the lid / record grab their own buffers.
         this.model_base.render(poseStack, consumer, packedLight, packedOverlay)
-        this.renderLid(entity, partialTick, poseStack, bufferSource, packedLight, packedOverlay)
         this.renderArm(entity, partialTick, poseStack, consumer, packedLight, packedOverlay)
 
         val rot = (((entity.level?.gameTime ?: 0) + partialTick) * 3f) % 360
@@ -91,6 +92,8 @@ class RecordPlayerRenderer(context: BlockEntityRendererProvider.Context) : Block
         poseStack.mulPose(Axis.YP.rotationDegrees(toRot))
         this.model_peg.render(poseStack, consumer, packedLight, packedOverlay)
         poseStack.popPose()
+
+        this.renderLid(entity, partialTick, poseStack, bufferSource, packedLight, packedOverlay)
 
         /** Might as well render anything that's in the slot,
          * so it's easier to tell what's happened in the event something else gets in somehow. */

@@ -58,6 +58,7 @@ object BRConfig {
         val spec: ModConfigSpec
 
         val wireLength: ModConfigSpec.IntValue
+        val recordPlayerRadius: ModConfigSpec.IntValue
         val maxSpeakerRadius: ModConfigSpec.IntValue
 
         init {
@@ -70,6 +71,10 @@ object BRConfig {
             wireLength = builder
                 .comment("Maximum length of a speaker wire, in blocks")
                 .defineInRange("wireLength", 16, 5, 80)
+
+            recordPlayerRadius = builder
+                .comment("How far a record player can be heard on its own, in blocks. Each wired speaker adds to this")
+                .defineInRange("recordPlayerRadius", 24, 4, 256)
 
             maxSpeakerRadius = builder
                 .comment("Maximum distance a record player can be heard from, in blocks, including speakers. -1 for no limit")

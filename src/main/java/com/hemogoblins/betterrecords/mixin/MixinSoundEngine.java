@@ -3,19 +3,19 @@ package com.hemogoblins.betterrecords.mixin;
 import com.hemogoblins.betterrecords.BRConfig;
 import com.hemogoblins.betterrecords.BetterRecords;
 import com.hemogoblins.betterrecords.api.client.sound.AudioStreamRegistry;
-import com.hemogoblins.betterrecords.client.sound.RecordPlayingSound;
 import com.hemogoblins.betterrecords.api.client.sound.RecordAudioStream;
+import com.hemogoblins.betterrecords.client.sound.DecodedRecord;
+import com.hemogoblins.betterrecords.client.sound.MonoDownmix;
 import com.hemogoblins.betterrecords.client.sound.ProgressInputStream;
-import com.hemogoblins.betterrecords.client.sound.RecordSoundManager;
-import com.hemogoblins.betterrecords.client.sound.RecordVolume;
-import com.mojang.blaze3d.audio.Channel;
-import com.mojang.blaze3d.audio.Library;
+import com.hemogoblins.betterrecords.client.sound.RecordPlayback;
+import com.hemogoblins.betterrecords.client.sound.RecordPlayingSound;
 import com.mojang.blaze3d.audio.SoundBuffer;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.ChannelAccess;
 import net.minecraft.client.sounds.SoundEngine;
+import net.minecraft.client.sounds.SoundEngineExecutor;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,20 +26,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Hooks Better Records' file-backed sounds into the vanilla sound engine.
+ *
+ * Decoding happens off-thread here, playback (one positional OpenAL source per speaker,
+ * kept in sync) is handled by {@link RecordPlayback}.
+ */
 @Mixin(SoundEngine.class)
 public abstract class MixinSoundEngine {
 
     @Shadow @Final private ChannelAccess channelAccess;
+    @Shadow @Final private SoundEngineExecutor executor;
 
     @Unique
-    private final Map<RecordPlayingSound, ChannelAccess.ChannelHandle> betterRecords$soundHandles = new HashMap<>();
+    private RecordPlayback betterRecords$playback;
 
     /**
      * Sounds whose audio is still being decoded off-thread. A stop() that
@@ -49,9 +53,15 @@ public abstract class MixinSoundEngine {
     @Unique
     private final Set<RecordPlayingSound> betterRecords$loading = new HashSet<>();
 
-    // Volume by distance (including speakers) lives in RecordVolume, so it can see the record player's wiring.
+    @Unique
+    private RecordPlayback betterRecords$playback() {
+        if (betterRecords$playback == null) {
+            betterRecords$playback = new RecordPlayback(this.channelAccess, this.executor);
+        }
+        return betterRecords$playback;
+    }
 
-    @Inject(method="play(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "play(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
     public void onPlay(SoundInstance sound, CallbackInfo ci) {
         if (!(sound instanceof RecordPlayingSound recordSound)) {
             return;
@@ -66,16 +76,17 @@ public abstract class MixinSoundEngine {
         betterRecords$loading.add(recordSound);
         recordSound.setLoading(true);
 
-        CompletableFuture<SoundBuffer> bufferFuture =
-                CompletableFuture.supplyAsync(() -> betterRecords$decode(recordSound, soundFile), Util.backgroundExecutor());
-        bufferFuture
-
-                .thenAcceptBothAsync(
-                        this.channelAccess.createHandle(Library.Pool.STATIC),
-                        (soundBuffer, channelHandle) -> betterRecords$startPlaying(recordSound, soundBuffer, channelHandle),
-                        Minecraft.getInstance())
+        CompletableFuture
+                .supplyAsync(() -> betterRecords$decode(recordSound, soundFile), Util.backgroundExecutor())
+                .thenAcceptAsync(decoded -> {
+                    boolean wanted = betterRecords$loading.remove(recordSound);
+                    recordSound.setLoading(false);
+                    if (wanted) {
+                        betterRecords$playback().start(recordSound, decoded.getBuffer(), decoded.getDurationSeconds());
+                    }
+                }, Minecraft.getInstance())
                 .exceptionally(throwable -> {
-                    betterRecords$loading.remove(recordSound);
+                    Minecraft.getInstance().execute(() -> betterRecords$loading.remove(recordSound));
                     recordSound.setLoading(false);
                     BetterRecords.INSTANCE.getLogger().error("Failed to play record sound", throwable);
                     return null;
@@ -83,10 +94,11 @@ public abstract class MixinSoundEngine {
     }
 
     /**
-     * Reads and decodes a cached audio file into a static buffer.
+     * Reads and decodes a cached audio file into a static buffer, mixed down to mono
+     * so OpenAL can position it in the world.
      */
     @Unique
-    private SoundBuffer betterRecords$decode(RecordPlayingSound recordSound, File soundFile) {
+    private DecodedRecord betterRecords$decode(RecordPlayingSound recordSound, File soundFile) {
         if (!soundFile.exists()) {
             throw new RuntimeException("Sound file not found: " + soundFile.getAbsolutePath());
         }
@@ -94,81 +106,38 @@ public abstract class MixinSoundEngine {
         try (FileInputStream stream = new FileInputStream(soundFile);
              ProgressInputStream progressStream = new ProgressInputStream(stream, soundFile.length(), recordSound);
              RecordAudioStream audioStream = AudioStreamRegistry.INSTANCE.open(progressStream)) {
-            SoundBuffer soundBuffer = new SoundBuffer(audioStream.readAll(), audioStream.getFormat());
+            var pcm = audioStream.readAll();
+            MonoDownmix.Result mono = MonoDownmix.toMono(pcm, audioStream.getFormat());
+            float duration = MonoDownmix.durationSeconds(mono.data, mono.format);
+            SoundBuffer soundBuffer = new SoundBuffer(mono.data, mono.format);
             recordSound.setLoadProgress(1.0F);
-            return soundBuffer;
+            return new DecodedRecord(soundBuffer, duration);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    /** Attaches the decoded buffer to a channel and starts playback. Runs on the main thread. */
-    @Unique
-    private void betterRecords$startPlaying(RecordPlayingSound recordSound, SoundBuffer soundBuffer, ChannelAccess.ChannelHandle channelHandle) {
-        // If the sound was stopped while it was still loading, don't start it.
-        boolean wanted = betterRecords$loading.remove(recordSound);
-        recordSound.setLoading(false);
-
-        if (channelHandle == null) {
-            return;
-        }
-
-        if (!wanted) {
-            channelHandle.execute(Channel::stop);
-            return;
-        }
-
-        float volume = RecordVolume.forRecordAt(recordSound.getPos());
-
-        channelHandle.execute((channel) -> {
-            channel.setPitch(recordSound.getPitch());
-            channel.setVolume(volume);
-            channel.attachStaticBuffer(soundBuffer);
-            channel.play();
-        });
-
-        recordSound.setStartedPlayingAt(Util.getMillis());
-        betterRecords$soundHandles.put(recordSound, channelHandle);
-    }
-
     // SoundEngine has two stop overloads, target the SoundInstance one explicitly.
-    @Inject(method="stop(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "stop(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At("HEAD"), cancellable = true)
     public void onStop(SoundInstance sound, CallbackInfo ci) {
         if (sound instanceof RecordPlayingSound recordSound) {
             // Cancel playback if the sound is still being decoded
             betterRecords$loading.remove(recordSound);
-
-            ChannelAccess.ChannelHandle channelHandle = betterRecords$soundHandles.remove(recordSound);
-
-            if (channelHandle != null) {
-                channelHandle.execute(Channel::stop);
-            }
-
+            betterRecords$playback().stop(recordSound);
             ci.cancel();
         }
     }
 
-    /**
-     * Updates the volume of all active sounds based on the player's distance from the sound source.
-     */
-    @Inject(method="tick(Z)V", at = @At("TAIL"))
-    public void onTick(CallbackInfo ci) {
-        Iterator<Map.Entry<RecordPlayingSound, ChannelAccess.ChannelHandle>> iterator =
-                betterRecords$soundHandles.entrySet().iterator();
+    /** Leaving a world stops every sound, records included. */
+    @Inject(method = "stopAll()V", at = @At("HEAD"))
+    public void onStopAll(CallbackInfo ci) {
+        betterRecords$loading.clear();
+        betterRecords$playback().stopAll();
+    }
 
-        while (iterator.hasNext()) {
-            Map.Entry<RecordPlayingSound, ChannelAccess.ChannelHandle> entry = iterator.next();
-            RecordPlayingSound sound = entry.getKey();
-            ChannelAccess.ChannelHandle handle = entry.getValue();
-
-            if (handle.isStopped()) {
-                iterator.remove();
-                RecordSoundManager.INSTANCE.onFinished(sound);
-                continue;
-            }
-
-            float volume = RecordVolume.forRecordAt(sound.getPos());
-            handle.execute(channel -> channel.setVolume(volume));
-        }
+    /** Keeps each record's speakers in step with its wiring, volume slider and play radius. */
+    @Inject(method = "tick(Z)V", at = @At("TAIL"))
+    public void onTick(boolean isGamePaused, CallbackInfo ci) {
+        betterRecords$playback().tick(isGamePaused);
     }
 }

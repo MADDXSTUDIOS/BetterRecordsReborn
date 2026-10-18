@@ -34,8 +34,13 @@ class RecordPlayerBlockEntity(
         const val NBT_TAG_PLAYING = "isPlaying"
         const val NBT_TAG_SPEAKERS = "speakers"
 
-        /** How far a record player can be heard on its own, in blocks. */
-        const val BASE_RADIUS = 64f
+        /** How far a record player can be heard on its own, in blocks (server config, synced to clients). */
+        val BASE_RADIUS: Float
+            get() = try {
+                BRConfig.Server.recordPlayerRadius.get().toFloat()
+            } catch (e: IllegalStateException) {
+                24f // config not loaded yet (main menu)
+            }
 
         val animationTicker = BlockEntityTicker<RecordPlayerBlockEntity> { _, _, _, entity ->
             entity.lidController.tickLid()
@@ -93,7 +98,7 @@ class RecordPlayerBlockEntity(
     val songRadius: Float
         get() {
             val radius = BASE_RADIUS + connectedSpeakers().sumOf { it.second.radiusIncrease.toDouble() }.toFloat()
-            val max = BRConfig.Server.maxSpeakerRadius.get()
+            val max = try { BRConfig.Server.maxSpeakerRadius.get() } catch (e: IllegalStateException) { -1 }
             return if (max < 0) radius else minOf(radius, max.toFloat())
         }
 
